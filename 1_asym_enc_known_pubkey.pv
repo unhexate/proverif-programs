@@ -1,0 +1,36 @@
+(* Communication channel *)
+free c : channel.
+
+(* Public and Private keys *)
+type priv_key.
+type pub_key.
+
+(* Derive public key *)
+fun pub(priv_key) : pub_key.
+
+(* Asymmetric encryption *)
+fun aenc(bitstring, pub_key) : bitstring.
+reduc forall m:bitstring, k: priv_key; adec(aenc(m, pub(k)), k) = m.
+
+(* Secrets *)
+free secretA, secretB: bitstring [private].
+
+query attacker(secretA).
+query attacker(secretB).
+
+let A(pkB: pub_key, skA: priv_key) =
+  out(c, aenc(secretA, pkB));
+  in(c, x: bitstring);
+  let secretB_recv = adec(x, skA) in
+  0.
+
+let B(pkA: pub_key, skB: priv_key)=
+  in(c, x: bitstring);
+  let secretA_recv = adec(x, skB) in 
+  out(c, aenc(secretB, pkA)).
+
+(* Main process *)
+process
+  new skA: priv_key; let pkA = pub(skA) in out(c, pkA);
+  new skB: priv_key; let pkB = pub(skB) in out(c, pkB);
+  ( !A(pkB, skA) | !B(pkA, skB) )

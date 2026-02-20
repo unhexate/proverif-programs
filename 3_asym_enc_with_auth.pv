@@ -1,0 +1,76 @@
+(* Communication channel *)
+free c : channel.
+
+(* Types *)
+type skey.
+
+(* Symmetric encryption *)
+fun senc(bitstring, skey) : bitstring.
+reduc forall m:bitstring, k:skey; sdec(senc(m, k), k) = m.
+
+(* only changes type, attacker can use this function and reverse it *)
+fun skey_to_bs(skey): bitstring [typeConverter].
+
+(* Public and Private keys *)
+type priv_key.
+type pub_key.
+
+(* Derive public key *)
+fun pub(priv_key) : pub_key.
+
+(* Asymmetric encryption *)
+fun aenc(bitstring, pub_key) : bitstring.
+reduc forall m:bitstring, k: priv_key; adec(aenc(m, pub(k)), k) = m.
+
+(* Signatures *)
+type spkey.
+type sskey.
+
+fun spub(sskey): spkey.
+fun sign(bitstring, sskey): bitstring.
+reduc forall x: bitstring, y: sskey; getmesg(sign(x,y)) = x.
+reduc forall x: bitstring, y: sskey; checksign(sign(x,y), spub(y)) = x.
+
+free secretA, secretB: bitstring [private].
+
+query attacker(secretA).
+query attacker(secretB).
+
+let A(skA: priv_key, sskA: sskey, spkB: spkey) =
+  in(c, pkB: pub_key);
+  new K: skey;
+  let K_bs = skey_to_bs(K) in
+
+  out(c, sign( aenc( (pub(skA), K_bs), pkB) , sskA));
+
+  in(c, x1: bitstring);
+  let m2 = checksign(x1, spkB) in
+  let (=K_bs) = adec(m2, skA) in
+
+  out(c, senc(secretA, K));
+
+  in(c, x2: bitstring);
+  let secretB_recv = sdec(x2, K) in
+  0.
+
+let B(skB: priv_key, sskB: sskey, spkA: spkey)=
+  in(c, x1: bitstring);
+  let m1 = checksign(x1, spkA) in
+  let (pkA: pub_key, skey_to_bs(K)) = adec(m1, skB) in
+
+  out(c, sign( aenc(skey_to_bs(K), pkA), sskB));
+
+  in(c, x2: bitstring);
+  let secretA_recv = sdec(x2, K) in
+
+  out(c, senc(secretB, K)).
+
+(* Main process *)
+process
+  new skA: priv_key; let pkA = pub(skA) in
+  new skB: priv_key; let pkB = pub(skB) in out(c, pkB);
+
+  new sskA: sskey; let spkA = spub(sskA) in
+  new sskB: sskey; let spkB = spub(sskB) in
+
+  ( !A(skA, sskA, spkB) | !B(skB, sskB, spkA) )

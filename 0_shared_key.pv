@@ -1,0 +1,32 @@
+(* Communication channel *)
+free c : channel.
+
+(* Types *)
+type key.
+
+(* Symmetric encryption *)
+fun senc(bitstring, key) : bitstring.
+reduc forall m:bitstring, k:key; sdec(senc(m, k), k) = m.
+
+(* Secrets *)
+free secretA, secretB: bitstring [private].
+free k: key [private].
+
+query attacker(secretA).
+query attacker(secretB).
+
+let A(k : key) =
+  out(c, senc(secretA, k));
+  in(c, x: bitstring);
+  let secretB_recv = sdec(x, k) in
+  0.
+
+let B (k: key)=
+  in(c, x: bitstring);
+  let secretA_recv = sdec(x, k) in
+  out(c, senc(secretB, k)).
+
+(* Main process *)
+process
+  ( !A(k) | !B(k) )
+
